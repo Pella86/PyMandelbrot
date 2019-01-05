@@ -27,3 +27,9 @@ class Color:
         s += tohex(self.limit(self.g))
         s += tohex(self.limit(self.b))
         return s
+    
+    def get_limited(self):
+        r = self.limit(self.r)
+        g = self.limit(self.g)
+        b = self.limit(self.b)
+        return (r, g, b)
