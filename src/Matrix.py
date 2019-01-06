@@ -23,3 +23,12 @@ class Matrix:
     
     def set(self, x, y, v):
         self.array[self.calc_idx(x, y)] = v
+
+    def normalize01(self):
+        # values in the mandel solution have to be normalized from 0 to 1
+        max_sol = max(self.array)
+        min_sol = min(self.array)
+        for i in range(self.width):
+            for j in range(self.height):
+                norm_value = (self.get(i, j) - min_sol ) / (max_sol - min_sol)
+                self.set(i, j, norm_value)
