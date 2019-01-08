@@ -5,16 +5,29 @@ Created on Fri Jan  4 23:55:50 2019
 @author: Mauro
 """
 
+#==============================================================================
+# Imports
+#==============================================================================
+
+# pyimports
 import cmath
 
+# matliplot/numpy
+#  side note, these are unnecessary, used for colormap and save image
+import matplotlib
 import matplotlib.image as mpimg
 import numpy as np
 
-
+# user imports
 import Matrix
 import Color
 
+#==============================================================================
+# Linearization calss
+#==============================================================================
+
 class Linspace:
+    '''Allows to space in equal step between two numbers'''
     
     def __init__(self, minv, maxv, nsteps):
         self.minv = minv
@@ -24,7 +37,15 @@ class Linspace:
     def get(self, n):
         return (self.maxv - self.minv) / self.nsteps * n + self.minv
 
+#==============================================================================
+# Mandelbrot result object
+#==============================================================================
+
 class MandelResult:
+    ''' the result of the mandelbrot function is stored in a value and a 
+    boolean variable which tells if the number is in the set or not
+    the operator overload allows the normalization and sorting of said values
+    '''
     
     def __init__(self, res, in_set):
         self.res = res
@@ -56,18 +77,29 @@ class MandelResult:
         r = self.res / other.res
         return MandelResult(r, self.in_set)
 
+#==============================================================================
+# A class to store the boundaries
+#==============================================================================
+
 class Boundaries:
     
     def __init__(self, width, height, minx, maxx, miny, maxy):
         self.linx = Linspace(minx, maxx, width)
         self.liny = Linspace(miny, maxy, height)
+    
+    def get_width(self):
+        return self.linx.nsteps
+    
+    def get_height(self):
+        return self.liny.nsteps
 
 class Mandelbrot:
     
-    def __init__(self, boundaries, max_iteration, mode):
+    def __init__(self, boundaries, max_iteration, mode, colormap):
         
         self.width = boundaries.linx.nsteps
         self.height = boundaries.liny.nsteps
+        
         self.max_iteration = max_iteration
         self.color_matrix = None
         self.mandel_solution = None
@@ -93,14 +125,12 @@ class Mandelbrot:
                 self.mandel_solution.set(i, j, mr)
     
     def value_mode(self, operation, value):
-        if operation == "module":
-            return abs(value)
-        elif operation == "phase":
-            return (cmath.phase(value)  + cmath.pi ) / (2 * cmath.pi) * 255
-        elif operation == "imaginary":
-            return value.imag
-        elif operation == "real":
-            return value.real
+        operations = {}
+        operations["module"] = abs(value)
+        operations["phase"] = (cmath.phase(value)  + cmath.pi ) / (2 * cmath.pi)
+        operations["imaginary"] = value.imag
+        operations["real"] = value.real
+        return operations[operation]
         
     def calc_mandelbrot(self, c, mode):
         z = complex(0, 0)
@@ -125,9 +155,7 @@ class Mandelbrot:
         if self.color_matrix is None:
             self.color_matrix = self.convert_to_color_matrix()
         return self.color_matrix
-    
 
-    
     def convert_to_color_matrix(self):
         bgcolor = Color.Color(0, 0, 0)
         color_matrix = Matrix.Matrix(self.width, self.height, bgcolor)
@@ -138,7 +166,7 @@ class Mandelbrot:
             for j in range(self.mandel_solution.height):  
                 if not self.mandel_solution.get(i, j).in_set:
                     value = self.mandel_solution.get(i, j).res
-                    color = self.color_function("yellow", value)
+                    color = self.color_function("seismic", value)
                     color_matrix.set(i, j, color)
                 else:
                     value = self.mandel_solution.get(i, j).res
@@ -172,6 +200,13 @@ class Mandelbrot:
             
             v = int( value * 255 )
             color = Color.Color(255, v, 0)
+            return color
+        
+        if method == "seismic":
+            cmap = matplotlib.cm.get_cmap("hot")
+            cmapv = cmap(value)
+            val = lambda i : int(cmapv[i] * 255)
+            color = Color.Color(val(0), val(1), val(2))
             return color
    
     
