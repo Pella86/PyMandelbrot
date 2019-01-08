@@ -13,11 +13,23 @@ sys.path.append("./src")
 # Imports
 #==============================================================================
 
+import os
+
 from tkinter import (Tk, Canvas, PhotoImage, mainloop, LabelFrame, Frame, Entry,
-                    Label, Button, END)
+                    Label, Button, END, filedialog)
 
 import Color
 import Mandelbrot
+
+#==============================================================================
+# utility
+#==============================================================================
+
+def get_pathname(path):
+    ''' Little function to split the path in path, name, extension'''
+    path, nameext = os.path.split(path)
+    name, ext = os.path.splitext(nameext)
+    return path, name, ext
 
 #==============================================================================
 # Graph
@@ -58,6 +70,8 @@ class Graph:
                 self.image.put(color.getcs(), (x,y)) 
 
 class LabelEntry:
+    ''' class that constructs an entry text field plus label in front of it
+    '''
     
     def __init__(self, rootf, name, def_value = "0"):
         self.frame = Frame(rootf)
@@ -69,6 +83,9 @@ class LabelEntry:
         self.entry.grid(row = 0, column = 1)
         
         self.entry.insert(END, str(def_value))
+        
+    def set_color(self, color):
+        self.entry.config({"background": color.getcs()})
     
         
 
@@ -83,53 +100,94 @@ class ControlPanel:
         # insert the various parameters boxes
         self.data_boxes = {}
         
+        # function to initialize a labelled entry and put it in the right
+        # position
         def place_entry(text, def_value, row, col, colspan=1):
             self.data_boxes[text] = LabelEntry(self.frame, text, def_value)
             self.data_boxes[text].frame.grid(row = row, 
                                              column = col, 
                                              columnspan=colspan)
-        
+        # parameters entries placement
         place_entry("x min", -2.0, 0, 0)
         place_entry("x max", 0.5, 0, 1)
         place_entry("y min", -1.25, 1, 0)
         place_entry("y max", 1.25, 1, 1)
         place_entry("max iterations", 25, 2, 0, 2)
-        place_entry("mode", "module", 3, 0, 2)
+        place_entry("mode", "iteration", 3, 0, 2)
         place_entry("colormap", "hot", 4, 0, 2)
         
-        # insert the buttons to render and save image
+        # place the buttons to render the image
         self.brender = Button(self.frame, text="Render", 
                               command = lambda : self.render(graph))
         self.brender.grid(row = 5, column = 0)
         
+        # place the button to save the image
         self.bsave = Button(self.frame, text = "Save image", 
                             command = self.save_image)
         self.bsave.grid(row = 5, column = 1)
     
     def render(self, graph):
         ''' this function renders the mandelbrot into the graph, using the 
-        parameters specified in the data boxes
+        parameters specified in the data boxes. If the input value is wrong
+        the box will turn red
         '''
-        
+        # set the variables needed for input correctness
         correct_format = True
         
-        try:
-            minx = float(self.data_boxes["x min"].entry.get())
-            maxx = float(self.data_boxes["x max"].entry.get())
-            miny = float(self.data_boxes["y min"].entry.get())
-            maxy = float(self.data_boxes["y max"].entry.get())
-            it = int(self.data_boxes["max iterations"].entry.get())
-            mode = str(self.data_boxes["mode"].entry.get())
-            colormap = str(self.data_boxes["colormap"].entry.get())
-        except ValueError:
-            # add a dialog box
-            print("data boxes have wrong format")
-            correct_format = False
-            pass
+        # reset all entry box background to white
+        for key in self.data_boxes.keys():
+            self.data_boxes[key].set_color(Color.Color(255, 255, 255))
         
+        # define input checking functions
+        input_types = {}
+        input_types["float"] = float
+        input_types["int"] = int
+        
+        # if the input needs to be converted to a number
+        def check_input(data_box_name, input_type):
+            # this will be false if the format is not correct
+            nonlocal correct_format
+            
+            # check if is valid
+            try:
+                item = self.data_boxes[data_box_name].entry.get()
+                return input_types[input_type](item)
+            except ValueError:
+                # in case is wrong color the background of the box red
+                self.data_boxes[data_box_name].set_color(Color.Color(255, 0, 0))
+                return None
+            
+            # in case there is an unchecked exception this will set the format
+            # to false so that doesnt trigger the rendering
+            if correct_format:
+                correct_format = False
+        
+        # this checks if the validity of the input by verifiying if it exist
+        # as a possibility
+        def check_presence(data_box_name, possibilities):
+            nonlocal correct_format
+            
+            item = self.data_boxes[data_box_name].entry.get()
+            if item in possibilities:
+                return item
+            else:
+                self.data_boxes[data_box_name].set_color(Color.Color(255, 0, 0))
+                if correct_format:
+                    correct_format = False
+            
+        # gather the user inputs    
+        minx = check_input("x min", "float")
+        maxx = check_input("x max", "float")
+        miny = check_input("y min", "float")
+        maxy = check_input("y max", "float")
+        it   = check_input("max iterations", "int")
+        mode = check_presence("mode", Mandelbrot.available_modes)
+        colormap = check_presence("colormap", Mandelbrot.available_colormaps)
+        
+        # run the render
         if correct_format:
             bounds = Mandelbrot.Boundaries(WIDTH, HEIGHT, minx, maxx, miny, maxy)
-            self.mandelbrot = Mandelbrot.Mandelbrot(bounds, it, mode)
+            self.mandelbrot = Mandelbrot.Mandelbrot(bounds, it, mode, colormap)
             
             color_matrix = self.mandelbrot.convert_to_color_matrix()
             
@@ -137,8 +195,19 @@ class ControlPanel:
             graph.draw()        
         
     def save_image(self):
-        if self.mandelbrot is not None:
-            self.mandelbrot.save_image("./tests/test_saveimg.png")
+        # asks for a filename
+        path = filedialog.asksaveasfilename(initialdir = "./",
+                                            title = "Save image as ...")
+        
+        # if the program was run and the path is valid
+        if self.mandelbrot is not None and path is not None:
+            p, name, ext = get_pathname(path)
+            
+            # if extention missing then attach a png to it
+            if not ext:
+                path += ".png"
+                
+            self.mandelbrot.save_image(path)
 
 #==============================================================================
 # Main program
@@ -161,6 +230,7 @@ if __name__ == "__main__":
     
     
     mainloop()
+
 
 
 
