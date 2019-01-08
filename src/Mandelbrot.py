@@ -201,6 +201,7 @@ class Mandelbrot:
     def convert_to_color_matrix(self):
         ''' converts the solution matrix in a serie of "Color" elements
         '''
+        print("converting color map...")
         bgcolor = Color.Color(0, 0, 0)
         color_matrix = Matrix.Matrix(self.width, self.height, bgcolor)
         
@@ -208,14 +209,14 @@ class Mandelbrot:
         
         for i in range(self.mandel_solution.width):
             for j in range(self.mandel_solution.height):  
+                value = self.mandel_solution.get(i, j).res
+                # if is not in the mandelbrot then use a color map
+                # else paint it black
                 if not self.mandel_solution.get(i, j).in_set:
-                    value = self.mandel_solution.get(i, j).res
                     color = self.color_function(self.colormap, value)
-                    color_matrix.set(i, j, color)
                 else:
-                    value = self.mandel_solution.get(i, j).res
                     color = self.color_function("black", value)
-                    color_matrix.set(i, j, color)
+                color_matrix.set(i, j, color)
         
         return color_matrix
     
@@ -251,6 +252,8 @@ class Mandelbrot:
 
     def save_image(self, filename):
         ''' saves the color matrix into a picture given the filename'''
+        print("saving image...")
+
         color_matrix = self.get_color_matrix()
         
         arr = np.zeros([self.height, self.width, 3], np.uint8)

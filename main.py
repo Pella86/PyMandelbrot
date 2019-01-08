@@ -109,7 +109,7 @@ class ControlPanel:
                                              columnspan=colspan)
         # parameters entries placement
         place_entry("x min", -2.0, 0, 0)
-        place_entry("x max", 0.5, 0, 1)
+        place_entry("x max", 1.0, 0, 1)
         place_entry("y min", -1.25, 1, 0)
         place_entry("y max", 1.25, 1, 1)
         place_entry("max iterations", 25, 2, 0, 2)
@@ -189,10 +189,11 @@ class ControlPanel:
             bounds = Mandelbrot.Boundaries(WIDTH, HEIGHT, minx, maxx, miny, maxy)
             self.mandelbrot = Mandelbrot.Mandelbrot(bounds, it, mode, colormap)
             
-            color_matrix = self.mandelbrot.convert_to_color_matrix()
+            color_matrix = self.mandelbrot.get_color_matrix()
             
             graph.update_image(color_matrix)
-            graph.draw()        
+            graph.draw()     
+            print("rendering done")
         
     def save_image(self):
         # asks for a filename
