@@ -9,3 +9,7 @@ The program works as a stand alone with python3 standard library. Yet for saving
 ### Usage
 ```python main.py```
 
+
+### Requirments
+In principle the program works with the standard library of Python3.
+matplotlib is needed to generate colormaps and save images
