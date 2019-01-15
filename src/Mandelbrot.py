@@ -37,9 +37,6 @@ class KeyErrorMode(Exception):
 class KeyErrorColormap(Exception):
     pass
 
-
-
-
 #==============================================================================
 # Mandelbrot result object
 #==============================================================================
@@ -94,6 +91,14 @@ class Linspace:
 
     def get(self, n):
         return (self.maxv - self.minv) / self.nsteps * n + self.minv
+    
+class RLinspace(Linspace):
+    
+    def __init__(self, minv, maxv, nsteps):
+        super().__init__(minv, maxv, nsteps)
+
+    def get(self, n):
+        return (self.nsteps * (n - self.minv))/(self.maxv - self.minv)        
 
 #==============================================================================
 # A class to store the boundaries
@@ -115,6 +120,65 @@ class Boundaries:
 #==============================================================================
 # Mandelbrot class
 #==============================================================================
+
+class ColorFunction:
+    
+    def __init__(self, colormap_name):
+        available = ["red", "blue", "black", "yellow"]
+        
+        self.colormap = colormap_name
+        self.matlib_map = False
+        
+        if colormap_name not in available:
+            try:
+                self.colormap = matplotlib.cm.get_cmap(colormap_name)
+                self.matlib_map = True
+            except ValueError:
+                raise KeyErrorColormap()
+        
+        
+        if (not self.matlib_map) and (colormap_name not in available):
+            raise KeyErrorColormap()
+            
+        # create a look up table
+        self.lut = []
+        self.n_colors = 1024
+        self.calibrate_colormap()
+    
+    def calibrate_colormap(self):
+        for i in range(self.n_colors):
+            color = self.get_color_mapped(i / self.n_colors)
+            self.lut.append(color)
+    
+    def get_color(self, value):
+        v = value * (self.n_colors-1)
+        return self.lut[int(v)]
+    
+    def get_color_mapped(self, value):
+        if self.matlib_map:
+            cmap_value = self.colormap(value)
+            val = lambda i : int(cmap_value[i] * 255)
+            color = Color.Color(val(0), val(1), val(2))
+            return color
+            
+        elif self.colormap == "red":
+            v = int(255 * value)
+            color = Color.Color(255, 255 - v, 255 - v)
+            return color
+
+        elif self.colormap == 'blue':
+            v = int(255 * value)
+            color = Color.Color(255 - v, 255 - v, 255)
+            return color
+
+        elif self.colormap == "black":
+            return Color.Color(0, 0, 0)
+
+        elif self.colormap == "yellow":
+            v = int( value * 255 )
+            color = Color.Color(255, v, 0)
+            return color  
+            
 
 class Mandelbrot:
     ''' class that manages the mandelbrot core calculation.
@@ -165,6 +229,10 @@ class Mandelbrot:
                 # structure that holds the in/out set value
                 self.mandel_solution.set(i, j, mr)
         print("end calculation.")
+        
+        # prepare the color map
+        self.color_function = ColorFunction(colormap)
+        self.inset_color_function = ColorFunction("black")
 
     def value_mode(self, operation, value):
         ''' selects one of the possible outcomes, the lambda encoding allows
@@ -223,48 +291,48 @@ class Mandelbrot:
                 # if is not in the mandelbrot then use a color map
                 # else paint it black
                 if not self.mandel_solution.get(i, j).in_set:
-                    color = self.color_function(self.colormap, value)
+                    color = self.color_function.get_color(value)
                 else:
-                    color = self.color_function("black", value)
+                    color = self.inset_color_function.get_color(value)
                 color_matrix.set(i, j, color)
 
         return color_matrix
 
-    def color_function(self, method, value):
-        ''' This function transforms the normalized from 0 to 1 value of the
-        of the mandelbrot solution and maps it to different color maps
-        '''
-
-        if method == "red":
-            v = int(255 * value)
-            color = Color.Color(255, 255 - v, 255 - v)
-            return color
-
-        elif method == 'blue':
-            v = int(255 * value)
-            color = Color.Color(255 - v, 255 - v, 255)
-            return color
-
-        elif method == "black":
-            return Color.Color(0, 0, 0)
-
-        elif method == "yellow":
-            v = int( value * 255 )
-            color = Color.Color(255, v, 0)
-            return color
-
-        elif matlib_available:
-            try:
-                cmap = matplotlib.cm.get_cmap(method)
-            except ValueError:
-                raise KeyErrorColormap()
-            
-            cmap_value = cmap(value)
-            val = lambda i : int(cmap_value[i] * 255)
-            color = Color.Color(val(0), val(1), val(2))
-            return color
-        else:
-            raise KeyErrorColormap()
+#    def color_function(self, method, value):
+#        ''' This function transforms the normalized from 0 to 1 value of the
+#        of the mandelbrot solution and maps it to different color maps
+#        '''
+#
+#        if method == "red":
+#            v = int(255 * value)
+#            color = Color.Color(255, 255 - v, 255 - v)
+#            return color
+#
+#        elif method == 'blue':
+#            v = int(255 * value)
+#            color = Color.Color(255 - v, 255 - v, 255)
+#            return color
+#
+#        elif method == "black":
+#            return Color.Color(0, 0, 0)
+#
+#        elif method == "yellow":
+#            v = int( value * 255 )
+#            color = Color.Color(255, v, 0)
+#            return color
+#
+#        elif matlib_available:
+#            try:
+#                cmap = matplotlib.cm.get_cmap(method)
+#            except ValueError:
+#                raise KeyErrorColormap()
+#            
+#            cmap_value = cmap(value)
+#            val = lambda i : int(cmap_value[i] * 255)
+#            color = Color.Color(val(0), val(1), val(2))
+#            return color
+#        else:
+#            raise KeyErrorColormap()
 
     def save_image(self, filename):
         ''' saves the color matrix into a picture given the filename'''
