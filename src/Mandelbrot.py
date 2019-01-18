@@ -125,6 +125,7 @@ class ColorFunction:
     
     def __init__(self, colormap_name):
         available = ["red", "blue", "black", "yellow"]
+        self.colormap_name = colormap_name
         
         self.colormap = colormap_name
         self.matlib_map = False
@@ -192,6 +193,8 @@ class Mandelbrot:
     '''
 
     def __init__(self, boundaries, max_iteration, mode, colormap):
+        
+        self.boundaries = boundaries
 
         # placeholder to unclutter the code
         self.width = boundaries.get_width()
@@ -199,6 +202,7 @@ class Mandelbrot:
 
         self.max_iteration = max_iteration
         self.colormap = colormap
+        self.mode = mode
 
         # matrixes used in the calculations
         self.color_matrix = None

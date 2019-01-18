@@ -14,10 +14,11 @@ sys.path.append("./src")
 #==============================================================================
 
 import os
+import pickle
 
 from tkinter import (Tk, Canvas, PhotoImage, mainloop, LabelFrame, Frame, Entry,
                      Label, Button, END, filedialog, DISABLED, Checkbutton,
-                     IntVar)
+                     IntVar, Listbox)
 
 PIL_available = True
 try:
@@ -104,6 +105,10 @@ class Graph:
             data = data [0: len(data) - 1]
                 
             self.image.put(data, to=(0, 0, self.width, self.height))
+    
+    def update_image_pil(self, pil_image):
+        self.rootf.image = itk.PhotoImage(image=pil_image)
+        self.image = self.rootf.image
 
     def draw_rectangle(self, coords, color):
         if self.ob_ids:
@@ -141,6 +146,9 @@ class LabelEntry:
     def set(self, value):
         self.entry.delete(0, END)
         self.entry.insert(END, str(value))
+        
+    def bind(self, button, function):
+        self.entry.bind(button, function)
 
 #==============================================================================
 # Series of LabelEntries with input checking
@@ -155,7 +163,10 @@ class DataBoxes:
         self.correct_format = True
         self.input_types = {}
         self.input_types["float"] = float
-        self.input_types["int"] = int        
+        self.input_types["int"] = int  
+
+    def bind(self, name, button, function):
+        self.data_boxes[name].bind(button, function)
         
     
     def place_entry(self, name, def_value, row, col, colspan=1):
@@ -294,26 +305,42 @@ class ControlPanel:
 #==============================================================================
 
 class Zoom:
+    ''' the class manages the zooming in function and relative red square on
+    the graph
+    '''
     
     def __init__(self, rootf, graph, control_panel):
+        
+        # keep a reference of the graph area and control paknel
         self.graph = graph
-        self.control_panel = control_panel
         self.graph.canvas.bind("<Button-1>", lambda e : self.clicked(e))
         
+        self.control_panel = control_panel
+        
+        # create the frame for the buttons
         self.frame = LabelFrame(rootf, text="Zoom options")
         
+        # create the input boxes
         self.inputs = DataBoxes(self.frame) 
-
+        
         self.inputs.place_entry("width", str(0), 0, 0)
-        self.inputs.data_boxes["width"].entry.bind("<Return>", lambda e : self.update_rectangle(e, "width"))
+        self.inputs.bind(
+                "width",
+                "<Return>",
+                lambda e : 
+                    self.update_rectangle(e, "width"))
         
         self.inputs.place_entry("height", str(0), 0, 1) 
-        self.inputs.data_boxes["height"].entry.bind("<Return>", lambda e : self.update_rectangle(e, "height"))
+        self.inputs.bind(
+                "height",
+                "<Return>", 
+                lambda e : 
+                    self.update_rectangle(e, "height"))
         
-        self.lsx = None
-        self.lsy = None
-        self.glsx = None
-        self.glsy = None
+        self.mandel_coords_x = None
+        self.mandel_coords_y = None
+        self.graph_coords_x = None
+        self.graph_coords_y = None
         
         self.ratio = None
         
@@ -348,11 +375,11 @@ class Zoom:
         self.inputs.set("width", width)
         self.inputs.set("height", height)
         
-        self.lsx = Mandelbrot.Linspace(xmin, xmax, self.graph.width)
-        self.lsy = Mandelbrot.Linspace(ymin, ymax, self.graph.height)
+        self.mandel_coords_x = Mandelbrot.Linspace(xmin, xmax, self.graph.width)
+        self.mandel_coords_y = Mandelbrot.Linspace(ymin, ymax, self.graph.height)
         
-        self.glsx = Mandelbrot.RLinspace(xmin, xmax, self.graph.width)
-        self.glsy = Mandelbrot.RLinspace(ymin, ymax, self.graph.height)
+        self.graph_coords_x = Mandelbrot.RLinspace(xmin, xmax, self.graph.width)
+        self.graph_coords_y = Mandelbrot.RLinspace(ymin, ymax, self.graph.height)
         
     
     def update_rectangle(self, e, name):
@@ -382,10 +409,10 @@ class Zoom:
         x2 = x_clicked + half_w
         y2 = y_clicked + half_h
         
-        x1 = int(self.glsx.get(x1))
-        x2 = int(self.glsx.get(x2))
-        y1 = int(self.glsy.get(y1))
-        y2 = int(self.glsy.get(y2)) 
+        x1 = int(self.graph_coords_x.get(x1))
+        x2 = int(self.graph_coords_x.get(x2))
+        y1 = int(self.graph_coords_y.get(y1))
+        y2 = int(self.graph_coords_y.get(y2)) 
         
         
         self.graph.draw_rectangle((x1, y1, x2, y2), Color.Color(255, 0, 0))
@@ -393,22 +420,14 @@ class Zoom:
 
           
     def clicked(self, event):
-        print(event.x, event.y)
-        # get the information from the control panel
-        #  add in control panel class 
-        # get_xmin, get_xmax, get_ymin, get_ymax
-        #xmin = self.control_panel
-        #lsx = Mandelbrot.Linespace()
         
-        x_clicked = self.lsx.get(event.x)
-        y_clicked = self.lsy.get(event.y)
+        x_mandel = self.mandel_coords_x.get(event.x)
+        y_mandel = self.mandel_coords_y.get(event.y)
         
-        self.center = (x_clicked, y_clicked)
+        self.center = (x_mandel, y_mandel)
         
-        print(x_clicked, y_clicked)
-        
-        self.inputs.set("center_x", x_clicked)
-        self.inputs.set("center_y", y_clicked)  
+        self.inputs.set("center_x", x_mandel)
+        self.inputs.set("center_y", y_mandel)  
         
         self.draw_rectangle()
         
@@ -421,10 +440,10 @@ class Zoom:
 #        x2 = x_clicked + half_w
 #        y2 = y_clicked + half_h
 #        
-#        x1 = int(self.glsx.get(x1))
-#        x2 = int(self.glsx.get(x2))
-#        y1 = int(self.glsy.get(y1))
-#        y2 = int(self.glsy.get(y2))      
+#        x1 = int(self.graph_coords_x.get(x1))
+#        x2 = int(self.graph_coords_x.get(x2))
+#        y1 = int(self.graph_coords_y.get(y1))
+#        y2 = int(self.graph_coords_y.get(y2))      
 #        
 #        self.graph.draw_rectangle((x1, y1, x2, y2), Color.Color(255, 0, 0))
     
@@ -454,14 +473,210 @@ class Zoom:
             self.calc_proportions()
             
             self.control_panel.render(self.graph)
+
+
+#==============================================================================
+# Animation manager        
+#==============================================================================
+
+
+
+class AniFrame:
+    
+    def __init__(self, bd, iteration, colormap, mode, frame_n, image_name):
+        self.boundaries = bd
+        self.iteration = iteration
+        self.colormap = colormap
+        self.mode = mode
+        self.frame_n = frame_n
+        self.image_name = image_name
+        
+
+class Animation:
+
+    def __init__(self, rootf, control_panel, graph):
+        self.frame = LabelFrame(rootf, text = "Animation")
+        
+        self.control_panel = control_panel
+        self.graph = graph
+        
+        self.frames = {}
         
         
+        bsave_key_frame = Button(self.frame, text = "save key frame", command = self.save_frame)
+        bsave_key_frame.grid(row = 0, column = 0)
+        
+        bload = Button(self.frame, text = "load frame", command = lambda : self.load_aniframe())
+        bload.grid(row = 0, column = 1)
+        
+        self.frame_n = LabelEntry(self.frame, "frame number", 0)
+        self.frame_n.frame.grid(row = 1, column = 0, columnspan = 2)
+        
+        binter_render = Button(self.frame, text="interpolate and render", command = self.render_interpolation)
+        binter_render.grid(row = 2, column = 0, columnspan = 2)
+        
+        self.timeline = Listbox(self.frame)
+        self.timeline.bind("<Double-Button-1>", lambda e : self.item_select(e))
+        self.timeline.grid(row = 0, column = 2, rowspan = 3)
+        
+        self.folder = "./tests/animation/"
+        self.image_name_base = "ani_frame_image_"
+        if not os.path.isdir(self.folder):
+            os.mkdir(self.folder)
+     
+    def save_aniframe(self, frame_name):
+        filename = self.folder + "ani_frame_" + str(self.frames[frame_name].frame_n) + ".mlf"
+        with open(filename, "wb") as f:
+            pickle.dump(self.frames[frame_name], f)
+        
+    def load_aniframe(self):
+        filename = filedialog.askopenfilename(initialdir = self.folder, title="select a frame", filetypes=(("mandelbrot frame", "*.mlf"), ("all files", "*.*")))
+        print(filename)
+        
+        if filename:
+            with open(filename, "rb") as f:
+                frame = pickle.load(f)
+                self.add_frame(frame)
+        
+    def add_frame(self, aniframe):
+        positions = self.timeline.get(0, END)
+        
+        frame_n = aniframe.frame_n
+        
+        inserted = False
+        
+        for i, position in enumerate(positions):
+            
+            if self.frames[position].frame_n == frame_n:
+                self.frames[position] = aniframe
+                inserted = True
+                break
+            
+            elif self.frames[position].frame_n > frame_n:
+                self.add_element(frame_n, aniframe, i)
+                inserted = True
+                break
+        
+        if not inserted:
+            self.add_element(frame_n, aniframe)
+        
+
+    def save_frame(self):
+        # read all the control panel data and store them in self.frames
+        
+        # boundaries, iterations, colormap
+        # frame_n, image_name
+        bd = self.control_panel.mandelbrot.boundaries
+        iteration = self.control_panel.mandelbrot.max_iteration
+        colormap = self.control_panel.mandelbrot.color_function.colormap_name
+        mode = self.control_panel.mandelbrot.mode
+        frame_n = int(self.frame_n.entry.get())
+        image_name = self.folder + self.image_name_base + str(frame_n) + ".png"
+       
+        # save the image
+        self.control_panel.mandelbrot.save_image(image_name)
+        aniframe = AniFrame(bd, iteration, colormap, mode, frame_n, image_name)
+
+        self.add_frame(aniframe)
+        
+        self.save_aniframe(self.get_frame_name(aniframe))
+        
+    def get_frame_name(self, aniframe):
+        return  "frame_" + str(aniframe.frame_n)
+
+    def add_element(self, frame_n, aniframe, index = END):
+        frame_name = self.get_frame_name(aniframe)
+        self.frames[frame_name] = aniframe 
+        self.timeline.insert(index, frame_name)    
+        
+    
+    def item_select(self, event):
+        # retrive the selected item 
+        item = self.timeline.curselection()
+        names = self.timeline.get(0, END)
+
+        frame_name = names[int(item[0])]
+        frame = self.frames[frame_name]
+        if os.path.isfile(frame.image_name):
+            # add imread option
+            img = PIL.Image.open(frame.image_name)
+            self.graph.update_image_pil(img)
+            self.graph.draw()
+    
+    def render_interpolation(self):
+        names = self.timeline.get(0, 1)
+        
+        frame_start_name = names[0]
+        frame_end_name = names[1]
+        
+        frame_start = self.frames[frame_start_name]
+        frame_end = self.frames[frame_end_name]
+        
+        n_frames = frame_end.frame_n - frame_start.frame_n 
+        
+        bd_start = frame_start.boundaries
+        bd_end = frame_end.boundaries
+        
+        v_xmin = Mandelbrot.Linspace(bd_start.linx.minv, bd_end.linx.minv, n_frames)
+        v_xmax = Mandelbrot.Linspace(bd_start.linx.maxv, bd_end.linx.maxv, n_frames)
+        v_ymin = Mandelbrot.Linspace(bd_start.liny.minv, bd_end.liny.minv, n_frames)
+        v_ymax = Mandelbrot.Linspace(bd_start.liny.maxv, bd_end.liny.maxv, n_frames)    
+        
+        v_it = Mandelbrot.Linspace(frame_start.iteration,frame_end.iteration, n_frames)    
+        
+        w_start = bd_start.linx.maxv - bd_start.linx.minv
+        w_end = bd_end.linx.maxv - bd_end.linx.minv
+        w_ratio = w_end / w_start
+
+        h_start = bd_start.liny.maxv - bd_start.liny.minv
+        h_end = bd_end.liny.maxv - bd_end.liny.minv
+        h_ratio = h_end / h_start
+
+        for n in range(n_frames + 1):
+            if n != 0:
+                k_w = 1/pow(w_ratio, 1/ n)
+                k_h = 1/pow(h_ratio, 1/ n) 
+            else:
+                k_w, k_h = 1, 1
+                
+            
+            
+            minx = v_xmin.get(n) * k_w
+            maxx = v_xmax.get(n) * k_w
+            miny = v_ymin.get(n) * k_h
+            maxy = v_ymax.get(n) * k_h
+            
+            print("w:", maxx - minx)
+            
+            bounds = Mandelbrot.Boundaries(
+                        bd_start.get_width(), 
+                        bd_start.get_height(),
+                        minx, maxx, miny, maxy)
+            
+            it = int(v_it.get(n))
+            
+            mandelbrot = Mandelbrot.Mandelbrot(
+                            bounds, it,
+                            frame_start.mode,
+                            frame_start.colormap)
+            
+            mandelbrot.save_image(self.folder + "test_image_" + str(n) + ".png")
+            
+        
+        
+        
+# add on click display picture
+# add frame insertion control
+# add linearize and render functions
+       
+        
+
 #==============================================================================
 # Main program
 #==============================================================================
 
-#WIDTH, HEIGHT = 640, 480
 WIDTH, HEIGHT = 640, 480
+
 def main():
     
     root = Tk()
@@ -476,10 +691,13 @@ def main():
     cp = ControlPanel(graph_frame, graph)
     cp.frame.grid(row = 0, column = 1)
 
-    graph_frame.pack()
+    graph_frame.grid(row = 0, column = 0)
     
     zoom = Zoom(graph_frame, graph, cp)
     zoom.frame.grid(row = 1, column = 1)
+    
+    ani = Animation(root, cp, graph)
+    ani.frame.grid(row = 0, column = 1)
 
     mainloop()    
 
