@@ -16,19 +16,20 @@ sys.path.append("./src")
 import os
 import pickle
 
-from tkinter import (Tk, Canvas, PhotoImage, mainloop, LabelFrame, Frame, Entry,
-                     Label, Button, END, filedialog, DISABLED, Checkbutton,
-                     IntVar, Listbox)
+from tkinter import (Tk, mainloop, LabelFrame, Frame, Entry, Label, Button,
+                     END, filedialog, DISABLED, Checkbutton, IntVar, Listbox)
+                     
 
 PIL_available = True
 try:
     import PIL
-    import PIL.ImageTk as itk
 except ImportError:
     PIL_available = False
 
 import Color
 import Mandelbrot
+import Graph
+import InputEntry
 
 #==============================================================================
 # utilies
@@ -40,171 +41,10 @@ def get_pathname(path):
     name, ext = os.path.splitext(nameext)
     return path, name, ext
 
-#==============================================================================
-# Graph
-#==============================================================================
-
-class Graph:
-    ''' This class manages the drawing of the function. The function is
-    converted in a PhotoImage object and then populated with various
-    colors.
-    '''
-
-    def __init__(self, rootf, width, height):
-        
-        self.rootf = rootf
-
-        self.width = width
-        self.height = height
-
-        # create a canvas with a green background
-        bgcolor = Color.Color(0, 255, 125)
-        self.canvas = Canvas(rootf, width = width, height= height,
-                             bg= bgcolor.getcs(), bd = 0,
-                             relief="ridge", highlightthickness=0)
-
-        # append the photoimage to the root so it doesn't get
-        # garbage colloected
-        self.rootf.image = PhotoImage(width=width, height=height)
-        self.image = rootf.image
-        
-        self.ob_ids = []
-
-    def draw(self):
-        ''' draws the image on the canvas'''
-        dims = (self.width/2, self.height/2)
-        self.canvas.create_image(dims, image=self.image)
-
-    def update_image(self, matrix):
-        ''' fills the PhotoImage with the color values
-        color values have to be in the format '#FFAA00'
-        '''
-        if PIL_available:
-            img = PIL.Image.new( 'RGB', (self.width, self.height), "black")
-            pixmap = img.load()
-            
-            for j in range(self.height):
-                for i in range(self.width):
-                    color = matrix.get(i, j)
-                    pixmap[i, j] = (color.r, color.g, color.b)
-            
-            self.rootf.image = itk.PhotoImage(image=img)
-            self.image = self.rootf.image
-        else:
-            data = ""
-            for j in range(matrix.height):
-                data += "{"
-                for i in range(matrix.width):
-                
-                    color = matrix.get(i, j)
-                    data += color.getcs() + " "
-                data = data [0: len(data) - 1]
-                
-                data += "} "
-            
-            data = data [0: len(data) - 1]
-                
-            self.image.put(data, to=(0, 0, self.width, self.height))
-    
-    def update_image_pil(self, pil_image):
-        self.rootf.image = itk.PhotoImage(image=pil_image)
-        self.image = self.rootf.image
-
-    def draw_rectangle(self, coords, color):
-        if self.ob_ids:
-            for item_id in self.ob_ids:
-                self.canvas.delete(item_id)
-            self.ob_ids = []
-        
-        item_id = self.canvas.create_rectangle(coords[0], coords[1],
-                                               coords[2], coords[3],
-                                               outline=color.getcs(), fill="")
-        self.ob_ids.append(item_id)
 
 #==============================================================================
 # Mandelbrot parameters
 #==============================================================================
-
-class LabelEntry:
-    ''' class that constructs an entry text field plus label in front of it
-    '''
-
-    def __init__(self, rootf, name, def_value = "0"):
-        self.frame = Frame(rootf)
-
-        label = Label(self.frame, text=name)
-        label.grid(row = 0, column = 0)
-
-        self.entry = Entry(self.frame)
-        self.entry.grid(row = 0, column = 1)
-
-        self.entry.insert(END, str(def_value))
-
-    def set_color(self, color):
-        self.entry.config({"background": color.getcs()})
-        
-    def set(self, value):
-        self.entry.delete(0, END)
-        self.entry.insert(END, str(value))
-        
-    def bind(self, button, function):
-        self.entry.bind(button, function)
-
-#==============================================================================
-# Series of LabelEntries with input checking
-#==============================================================================
-
-class DataBoxes:
-    
-    def __init__(self, frame):
-        self.frame = frame
-        self.data_boxes = {}
-        
-        self.correct_format = True
-        self.input_types = {}
-        self.input_types["float"] = float
-        self.input_types["int"] = int  
-
-    def bind(self, name, button, function):
-        self.data_boxes[name].bind(button, function)
-        
-    
-    def place_entry(self, name, def_value, row, col, colspan=1):
-        self.data_boxes[name] = LabelEntry(self.frame, name, def_value)
-        self.data_boxes[name].frame.grid(row = row,
-                                         column = col,
-                                         columnspan=colspan)  
-    
-    def get(self, name, input_type):
-
-        # check if is valid
-        try:
-            item = self.data_boxes[name].entry.get()
-            return self.input_types[input_type](item)
-        except ValueError:
-            # in case is wrong color the background of the box red
-            self.data_boxes[name].set_color(Color.Color(255, 0, 0))
-
-        # in case there is an unchecked exception this will set the format
-        # to false so that doesnt trigger the rendering
-        if self.correct_format:
-            self.correct_format = False
-
-        return None
-    
-    def get_string(self, name):
-        return self.data_boxes[name].entry.get()
-    
-    def set(self, name, value):
-        self.data_boxes[name].set(value)
-        
-    def reset(self):
-        self.correct_format = True
-        for key in self.data_boxes:
-            self.data_boxes[key].set_color(Color.Color(255, 255, 255))
-            
-    
-
 
 class ControlPanel:
     ''' class controlling the input data for the mandelbrot function'''
@@ -214,16 +54,16 @@ class ControlPanel:
 
         self.mandelbrot = None
         
-        self.data_boxes = DataBoxes(self.frame)
+        self.data_boxes = InputEntry.DataBoxes(self.frame)
 
         # parameters entries placement
-        self.data_boxes.place_entry("x min", -2.0, 0, 0)
-        self.data_boxes.place_entry("x max", 1.0, 0, 1)
-        self.data_boxes.place_entry("y min", -1.25, 1, 0)
-        self.data_boxes.place_entry("y max", 1.25, 1, 1)
-        self.data_boxes.place_entry("max iterations", 25, 2, 0, 2)
-        self.data_boxes.place_entry("mode", "iteration", 3, 0, 2)
-        self.data_boxes.place_entry("colormap", "hot", 4, 0, 2)
+        self.data_boxes.place_entry("x min",         -2.0,  "float", 0, 0)
+        self.data_boxes.place_entry("x max",          1.0,  "float", 0, 1)
+        self.data_boxes.place_entry("y min",         -1.25, "float", 1, 0)
+        self.data_boxes.place_entry("y max",          1.25, "float", 1, 1)
+        self.data_boxes.place_entry("max iterations", 25,   "int",   2, 0, 2)
+        self.data_boxes.place_entry("mode",    "iteration", "str",   3, 0, 2)
+        self.data_boxes.place_entry("colormap",      "hot", "str",   4, 0, 2)
 
         # place the buttons to render the image
         self.brender = Button(self.frame, text="Render",
@@ -248,18 +88,18 @@ class ControlPanel:
 
 
         # gather the user inputs and check validity
-        minx = self.data_boxes.get("x min", "float")
-        maxx = self.data_boxes.get("x max", "float")
-        miny = self.data_boxes.get("y min", "float")
-        maxy = self.data_boxes.get("y max", "float")
-        it   = self.data_boxes.get("max iterations", "int")
+        minx = self.data_boxes.get("x min")
+        maxx = self.data_boxes.get("x max")
+        miny = self.data_boxes.get("y min")
+        maxy = self.data_boxes.get("y max")
+        it   = self.data_boxes.get("max iterations")
         
         # this user inputs are strings so they will always be in a valid
         # format.
         # yet they are keys into dictonaries, so if the key is missng
         # the error handling is inside the next body
-        mode = self.data_boxes.get_string("mode")
-        colormap = self.data_boxes.get_string("colormap")
+        mode = self.data_boxes.get("mode")
+        colormap = self.data_boxes.get("colormap")
 
         # run the render
         if self.data_boxes.correct_format:
@@ -321,16 +161,16 @@ class Zoom:
         self.frame = LabelFrame(rootf, text="Zoom options")
         
         # create the input boxes
-        self.inputs = DataBoxes(self.frame) 
+        self.inputs = InputEntry.DataBoxes(self.frame) 
         
-        self.inputs.place_entry("width", str(0), 0, 0)
+        self.inputs.place_entry("width", 0.0, "float", 0, 0)
         self.inputs.bind(
                 "width",
                 "<Return>",
                 lambda e : 
                     self.update_rectangle(e, "width"))
         
-        self.inputs.place_entry("height", str(0), 0, 1) 
+        self.inputs.place_entry("height", 0.0, "float", 0, 1) 
         self.inputs.bind(
                 "height",
                 "<Return>", 
@@ -346,8 +186,8 @@ class Zoom:
         
         self.calc_proportions()          
         
-        self.inputs.place_entry("center_x", str(0), 1, 0)
-        self.inputs.place_entry("center_y", str(0), 1, 1)
+        self.inputs.place_entry("center_x", 0.0, "float", 1, 0)
+        self.inputs.place_entry("center_y", 0.0, "float", 1, 1)
         
         self.center = (0, 0)
         
@@ -362,10 +202,11 @@ class Zoom:
         
 
     def calc_proportions(self): 
-        xmin = self.control_panel.data_boxes.get("x min", "float")
-        xmax = self.control_panel.data_boxes.get("x max", "float")        
-        ymin = self.control_panel.data_boxes.get("y min", "float")
-        ymax = self.control_panel.data_boxes.get("y max", "float") 
+        xmin = self.control_panel.data_boxes.get("x min")
+        xmax = self.control_panel.data_boxes.get("x max")        
+        ymin = self.control_panel.data_boxes.get("y min")
+        ymax = self.control_panel.data_boxes.get("y max") 
+        print(xmin, xmax, ymin, ymax)
         
         width = (xmax - xmin) / 10
         height = (ymax - ymin) / 10
@@ -387,10 +228,12 @@ class Zoom:
         
         if self.maintain_proportion.get() == 1:
             if name == "width":
-                width = self.inputs.get("width", "float")
-                self.inputs.set("height", width /self.ratio)
+                width = self.inputs.get_enter("width")
+                self.inputs.set("width", width)
+                self.inputs.set("height", width / self.ratio)
             if name == "height":
-                height = self.inputs.get("height", "float")
+                height = self.inputs.get_enter("height")
+                self.inputs.set("height", height)
                 self.inputs.set("width", height * self.ratio)
         
         
@@ -398,8 +241,8 @@ class Zoom:
     
     def draw_rectangle(self):
 
-        half_w = self.inputs.get("width", "float") / 2 
-        half_h = self.inputs.get("height", "float") / 2
+        half_w = self.inputs.get("width") / 2 
+        half_h = self.inputs.get("height") / 2
         
         x_clicked = self.center[0]
         y_clicked = self.center[1]        
@@ -430,33 +273,17 @@ class Zoom:
         self.inputs.set("center_y", y_mandel)  
         
         self.draw_rectangle()
-        
-        
-#        half_w = self.inputs.get("width", "float") / 2 
-#        half_h = self.inputs.get("height", "float") / 2
-#        
-#        x1 = x_clicked - half_w
-#        y1 = y_clicked - half_h
-#        x2 = x_clicked + half_w
-#        y2 = y_clicked + half_h
-#        
-#        x1 = int(self.graph_coords_x.get(x1))
-#        x2 = int(self.graph_coords_x.get(x2))
-#        y1 = int(self.graph_coords_y.get(y1))
-#        y2 = int(self.graph_coords_y.get(y2))      
-#        
-#        self.graph.draw_rectangle((x1, y1, x2, y2), Color.Color(255, 0, 0))
     
     def zoom_render(self):
         # set the values using the center and width from the boxes
         # start the render
         self.inputs.reset()
         
-        x = self.inputs.get("center_x", "float")
-        y = self.inputs.get("center_y", "float")
+        x = self.inputs.get("center_x")
+        y = self.inputs.get("center_y")
         
-        w = self.inputs.get("width", "float") 
-        h = self.inputs.get("height", "float")
+        w = self.inputs.get("width") 
+        h = self.inputs.get("height")
         
         new_xmin = x - w / 2
         new_xmax = x + w / 2
@@ -509,7 +336,7 @@ class Animation:
         bload = Button(self.frame, text = "load frame", command = lambda : self.load_aniframe())
         bload.grid(row = 0, column = 1)
         
-        self.frame_n = LabelEntry(self.frame, "frame number", 0)
+        self.frame_n = InputEntry.InputEntryInteger(self.frame, "frame number", 0, "{:d}")
         self.frame_n.frame.grid(row = 1, column = 0, columnspan = 2)
         
         binter_render = Button(self.frame, text="interpolate and render", command = self.render_interpolation)
@@ -601,7 +428,7 @@ class Animation:
             # add imread option
             img = PIL.Image.open(frame.image_name)
             self.graph.update_image_pil(img)
-            self.graph.draw()
+            self.graph.draw() 
     
     def render_interpolation(self):
         names = self.timeline.get(0, 1)
@@ -616,54 +443,82 @@ class Animation:
         
         bd_start = frame_start.boundaries
         bd_end = frame_end.boundaries
-        
-        v_xmin = Mandelbrot.Linspace(bd_start.linx.minv, bd_end.linx.minv, n_frames)
-        v_xmax = Mandelbrot.Linspace(bd_start.linx.maxv, bd_end.linx.maxv, n_frames)
-        v_ymin = Mandelbrot.Linspace(bd_start.liny.minv, bd_end.liny.minv, n_frames)
-        v_ymax = Mandelbrot.Linspace(bd_start.liny.maxv, bd_end.liny.maxv, n_frames)    
-        
-        v_it = Mandelbrot.Linspace(frame_start.iteration,frame_end.iteration, n_frames)    
-        
-        w_start = bd_start.linx.maxv - bd_start.linx.minv
-        w_end = bd_end.linx.maxv - bd_end.linx.minv
-        w_ratio = w_end / w_start
 
-        h_start = bd_start.liny.maxv - bd_start.liny.minv
-        h_end = bd_end.liny.maxv - bd_end.liny.minv
-        h_ratio = h_end / h_start
+        smx = bd_start.linx.minv
+        sMx = bd_start.linx.maxv
+        
+        emx = bd_end.linx.minv
+        eMx = bd_end.linx.maxv
 
-        for n in range(n_frames + 1):
-            if n != 0:
-                k_w = 1/pow(w_ratio, 1/ n)
-                k_h = 1/pow(h_ratio, 1/ n) 
-            else:
-                k_w, k_h = 1, 1
-                
+        scx = (sMx + smx) / 2
+        ecx = (eMx + emx) / 2
+        
+        sd = sMx - smx
+        ed = eMx - emx
+        f = sd / ed
+        z = pow(f, 1 / n_frames)
+
+        print("initial x")
+        print( ("{:.2f} "*4).format(smx, sMx, sMx - smx, sd / (sMx - smx)))
+        print( ("{:.2f} "*4).format(emx, eMx, eMx - emx, sd / (eMx - emx)))        
+
+ 
+
+        smy = bd_start.liny.minv
+        sMy = bd_start.liny.maxv
+        
+        emy = bd_end.liny.minv
+        eMy = bd_end.liny.maxv
+
+        scy = (sMy + smy) / 2
+        ecy = (eMy + emy) / 2
+        
+        sdy = sMy - smy
+        edy = eMy - emy
+        fy = sdy / edy
+        zy = pow(fy, 1 / n_frames)
+
+        print("initial y")
+        print( ("{:.2f} "*4).format(smy, sMy, sMy - smy, sdy / (sMy - smy)))
+        print( ("{:.2f} "*4).format(emy, eMy, eMy - emy, sdy / (eMy - emy)))  
+        
+        v_it = Mandelbrot.Linspace(frame_start.iteration, frame_end.iteration, n_frames)
+        
+        cd = sd
+        cdy = sdy
+        for frame in range(n_frames):
+            print("---")
+            cd /= z
+            c = (cd - sd) / (ed - sd)
+            ccx = ecx * c + scx * (1 - c)
+            xmin = ccx - cd / 2
+            xmax = ccx + cd / 2
             
+            print( ("{:.2f} "*4).format(xmin, xmax, xmax - xmin, sd / (xmax - xmin)))
             
-            minx = v_xmin.get(n) * k_w
-            maxx = v_xmax.get(n) * k_w
-            miny = v_ymin.get(n) * k_h
-            maxy = v_ymax.get(n) * k_h
-            
-            print("w:", maxx - minx)
+            cdy /= zy
+            cy = (cdy - sdy) / (edy - sdy)
+            ccy = ecy * cy + scy * (1 - cy)
+            ymin = ccy - cdy / 2
+            ymax = ccy + cdy / 2 
+
+            print( ("{:.2f} "*4).format(ymin, ymax, ymax - ymin, sdy / (ymax - ymin)))   
             
             bounds = Mandelbrot.Boundaries(
                         bd_start.get_width(), 
                         bd_start.get_height(),
-                        minx, maxx, miny, maxy)
+                        xmin, xmax, ymin, ymax)
             
-            it = int(v_it.get(n))
+            it = int(v_it.get(frame))
             
             mandelbrot = Mandelbrot.Mandelbrot(
                             bounds, it,
                             frame_start.mode,
                             frame_start.colormap)
             
-            mandelbrot.save_image(self.folder + "test_image_" + str(n) + ".png")
-            
-        
-        
+            mandelbrot.save_image(self.folder + "test_image_" + str(frame) + ".png")
+
+
         
 # add on click display picture
 # add frame insertion control
@@ -677,6 +532,11 @@ class Animation:
 
 WIDTH, HEIGHT = 640, 480
 
+def load_frame(animation, filename):
+    with open(filename, "rb") as f:
+        frame = pickle.load(f)
+        animation.add_frame(frame)
+
 def main():
     
     root = Tk()
@@ -684,7 +544,7 @@ def main():
 
 
     graph_frame = LabelFrame(root, text="Graph area")
-    graph = Graph(graph_frame, WIDTH, HEIGHT)
+    graph = Graph.Graph(graph_frame, WIDTH, HEIGHT)
     graph.canvas.grid(row = 0, column = 0, rowspan = 2)
     
 
@@ -698,6 +558,9 @@ def main():
     
     ani = Animation(root, cp, graph)
     ani.frame.grid(row = 0, column = 1)
+    
+    load_frame(ani, "./tests/animation/ani_frame_0.mlf")
+    #load_frame(ani, "./tests/animation/ani_frame_50.mlf")
 
     mainloop()    
 

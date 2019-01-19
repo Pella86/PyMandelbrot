@@ -153,6 +153,7 @@ class ColorFunction:
     
     def get_color(self, value):
         v = value * (self.n_colors-1)
+        v = v if v < len(self.lut) else len(self.lut) - 1 
         return self.lut[int(v)]
     
     def get_color_mapped(self, value):

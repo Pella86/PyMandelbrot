@@ -29,6 +29,12 @@ class Matrix:
         ''' normalizes the matrix values from 0 to 1 '''
         max_mat = max(self.array)
         min_mat = min(self.array)
+        if max_mat == min_mat:
+            for i in range(self.width):
+                for j in range(self.height):
+                    self.set(i, j, min_mat)
+            return
+        
         for i in range(self.width):
             for j in range(self.height):
                 norm_value = (self.get(i, j) - min_mat ) / (max_mat - min_mat)
