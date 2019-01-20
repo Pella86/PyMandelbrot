@@ -23,12 +23,11 @@ class InputEntry:
         label = Label(self.frame, text=name)
         label.grid(row = 0, column = 0)
 
-        self.entry = Entry(self.frame)
+        self.entry = Entry(self.frame, validate = "focusout", validatecommand=self.get_enter)
         self.entry.grid(row = 0, column = 1)
-        self.bind("<Return>", lambda e : self.set(self.entry.get()))
-        
-        self.value = def_value
-        self.set(self.value)
+        #self.bind("<Return>", lambda e : self.set(self.entry.get()))
+       
+        self.set(def_value)
 
     def set_color(self, color):
         self.entry.config({"background": color.getcs()})
@@ -37,7 +36,8 @@ class InputEntry:
         return self.value
     
     def get_enter(self):
-        return self.entry.get()
+        self.value = self.entry.get()
+        return True
         
     def set(self, value):
         self.value = value
@@ -46,6 +46,10 @@ class InputEntry:
         
     def bind(self, button, function):
         self.entry.bind(button, function)
+    
+    def reset(self):
+        print("set color to white")
+        self.set_color(Color.Color(255, 255, 255))
         
         
 
@@ -54,7 +58,7 @@ class InputEntryFloat(InputEntry):
     def __init__(self, rootf, name, def_value, fmt):
         self.fmt = fmt
         super().__init__(rootf, name, def_value)
-        self.bind("<Return>", lambda e : self.get_enter())
+        #self.bind("<Return>", lambda e : self.get_enter())
         
     
     def set(self, value):
@@ -63,21 +67,24 @@ class InputEntryFloat(InputEntry):
         self.entry.insert(END, self.fmt.format(value))
     
     def get_enter(self):
+        self.reset()
         try:
             item = self.entry.get()
             self.value = float(item)
-            return self.value
+            return True
         except ValueError:
             # in case is wrong color the background of the box red
             self.set_color(Color.Color(255, 0, 0))
-        return None
+            self.value = None
+            return False
+        return False
 
 class InputEntryInteger(InputEntry):
     
     def __init__(self, rootf, name, def_value, fmt):
         self.fmt = fmt
         super().__init__(rootf, name, def_value)
-        self.bind("<Return>", lambda e : self.get_enter())
+        #self.bind("<Return>", lambda e : self.get_enter())
 
     def set(self, value):
         self.value = int(value)
@@ -85,15 +92,18 @@ class InputEntryInteger(InputEntry):
         self.entry.insert(END, self.fmt.format(self.value))
     
     def get_enter(self):
+        self.reset()
         try:
             item = self.entry.get()
             self.value = int(item)
-            return self.value
+            return True
         except ValueError:
             # in case is wrong color the background of the box red
             self.set_color(Color.Color(255, 0, 0))
             
-        return None
+            self.value = None
+            return False
+        return False
 
 #==============================================================================
 # Series of LabelEntries with input checking
@@ -143,6 +153,6 @@ class DataBoxes:
     def reset(self):
         self.correct_format = True
         for key in self.data_boxes:
-            self.data_boxes[key].set_color(Color.Color(255, 255, 255))
+            self.data_boxes[key].reset()
             
     
