@@ -121,6 +121,9 @@ class Boundaries:
 # Mandelbrot class
 #==============================================================================
 
+
+
+
 class ColorFunction:
     
     def __init__(self, colormap_name):

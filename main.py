@@ -50,11 +50,12 @@ class AniFrame:
 
 class Animation:
 
-    def __init__(self, rootf, control_panel, graph):
+    def __init__(self, rootf, control_panel, graph, zoom):
         self.frame = LabelFrame(rootf, text = "Animation")
         
         self.control_panel = control_panel
         self.graph = graph
+        self.zoom = zoom
         
         self.frames = {}
         
@@ -161,13 +162,19 @@ class Animation:
         self.control_panel.data_boxes.set("y max", frame.boundaries.liny.maxv)
         self.control_panel.data_boxes.set("max iterations", frame.iteration)
         self.control_panel.data_boxes.set("mode", frame.mode)
-        self.control_panel.data_boxes.set("colormap", frame.colormap)        
+        self.control_panel.data_boxes.set("colormap", frame.colormap) 
+        
+        self.frame_n.set(frame.frame_n)
+        
         # load the image
         if os.path.isfile(frame.image_name):
             # add imread option
             img = PIL.Image.open(frame.image_name)
             self.graph.update_image_pil(img)
             self.graph.draw() 
+        
+        # adjust the zoom values
+        self.zoom.calc_proportions()
     
     
     
@@ -240,7 +247,7 @@ class Animation:
         cdy = sdy
         for frame in range(n_frames):
             
-            print(f"--- {frame} ---")
+            print(f"--- {frame + frame_start.frame_n} ---")
             cd /= z
             c = (cd - sd) / (ed - sd)
             ccx = ecx * c + scx * (1 - c)
@@ -250,7 +257,10 @@ class Animation:
             print( ("{:.2f} "*4).format(xmin, xmax, xmax - xmin, sd / (xmax - xmin)))
             
             cdy /= zy
-            cy = (cdy - sdy) / (edy - sdy)
+            if edy - sdy == 0:
+                cy = 1
+            else:
+                cy = (cdy - sdy) / (edy - sdy)
             ccy = ecy * cy + scy * (1 - cy)
             ymin = ccy - cdy / 2
             ymax = ccy + cdy / 2 
@@ -310,11 +320,8 @@ def main():
     zoom = ControlPanel.Zoom(graph_frame, graph, cp)
     zoom.frame.grid(row = 1, column = 1)
     
-    ani = Animation(root, cp, graph)
+    ani = Animation(root, cp, graph, zoom)
     ani.frame.grid(row = 0, column = 1)
-    
-    load_frame(ani, "./tests/animation/ani_frame_0.mlf")
-    #load_frame(ani, "./tests/animation/ani_frame_50.mlf")
 
     mainloop()    
 

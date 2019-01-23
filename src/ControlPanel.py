@@ -218,11 +218,11 @@ class Zoom:
         
         if self.maintain_proportion.get() == 1:
             if name == "width":
-                width = self.inputs.get_enter("width")
+                width = self.inputs.get("width")
                 self.inputs.set("width", width)
                 self.inputs.set("height", width / self.ratio)
             if name == "height":
-                height = self.inputs.get_enter("height")
+                height = self.inputs.get("height")
                 self.inputs.set("height", height)
                 self.inputs.set("width", height * self.ratio)
         
