@@ -83,8 +83,10 @@ class ControlPanel:
         # the error handling is inside the next body
         mode = self.data_boxes.data_boxes["mode"].entry.get()
         colormap = self.data_boxes.data_boxes["colormap"].entry.get()
+
+        print("start rendering...")
+        print("max iteration: " + str(it))
         
-        print(mode, colormap)
         # run the render
         correct_format = [True if v is not None else False for v in [minx, maxx, miny, maxy, it]]
         
@@ -179,13 +181,14 @@ class Zoom:
         check_prop = Checkbutton(self.frame, text = "maintain proportions", variable=self.maintain_proportion)
         check_prop.grid(row=1, columnspan=2)
         
-        self.calc_proportions()          
-        
         # place the center
         self.inputs.place_entry("center_x", 0.0, "float", 2, 0)
         self.inputs.place_entry("center_y", 0.0, "float", 2, 1)
         
         self.center = (0, 0)
+
+        #update the data boxes 
+        self.calc_proportions() 
         
         # zoom and render
         bzoom_render = Button(self.frame, text="zoom and render", command= self.zoom_render)
@@ -206,6 +209,8 @@ class Zoom:
         
         self.inputs.set("width", zoom_width)
         self.inputs.set("height", zoom_height)
+        self.inputs.set("center_x", zoom_width / 2)
+        self.inputs.set("center_y", zoom_height / 2)
         
         self.mandel_coords_x = Mandelbrot.Linspace(xmin, xmax, self.graph.width)
         self.mandel_coords_y = Mandelbrot.Linspace(ymin, ymax, self.graph.height)
@@ -282,7 +287,7 @@ class Zoom:
         correct_format = [True if v is not None else False for v in [new_xmin, new_xmax, new_ymin, new_ymax]]        
         
         
-        if any(correct_format):
+        if all(correct_format):
         
             self.control_panel.data_boxes.set("x min", new_xmin)
             self.control_panel.data_boxes.set("x max", new_xmax)

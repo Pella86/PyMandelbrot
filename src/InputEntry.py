@@ -48,10 +48,8 @@ class InputEntry:
         self.entry.bind(button, function)
     
     def reset(self):
-        print("set color to white")
         self.set_color(Color.Color(255, 255, 255))
-        
-        
+     
 
 class InputEntryFloat(InputEntry):
     
